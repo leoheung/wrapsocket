@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -31,7 +30,6 @@ func main() {
 
 	handler.SetOnMessage(func(conn *wrapsocket.Conn, msg *wrapsocket.Message) {
 		log.Printf("[Server] Message from %s: %s", conn.ID, string(msg.Data))
-		handler.Manager().Broadcast(context.Background(), websocket.MessageText, msg.Data)
 	})
 
 	handler.SetOnError(func(conn *wrapsocket.Conn, err error) {
