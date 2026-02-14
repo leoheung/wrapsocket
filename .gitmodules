@@ -1,0 +1,6 @@
+[submodule "wrapsocket-ts"]
+	path = wrapsocket-ts
+	url = https://github.com/leoheung/wrapsocket-ts.git
+[submodule "go-patterns"]
+	path = go-patterns
+	url = https://github.com/leoheung/go-patterns.git

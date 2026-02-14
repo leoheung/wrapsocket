@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WrapSocket Test</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 20px;
+        background: #1a1a2e;
+        color: #eee;
+      }
+      h1 {
+        color: #00d9ff;
+      }
+      .status {
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        font-weight: bold;
+      }
+      .status.connecting {
+        background: #ffc107;
+        color: #000;
+      }
+      .status.open {
+        background: #28a745;
+      }
+      .status.disconnected {
+        background: #dc3545;
+      }
+      .status.reconnecting {
+        background: #fd7e14;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+      }
+      button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: transform 0.1s, opacity 0.2s;
+      }
+      button:hover {
+        opacity: 0.9;
+      }
+      button:active {
+        transform: scale(0.98);
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-connect {
+        background: #28a745;
+        color: white;
+      }
+      .btn-disconnect {
+        background: #dc3545;
+        color: white;
+      }
+      .btn-reconnect {
+        background: #fd7e14;
+        color: white;
+      }
+      .btn-send {
+        background: #00d9ff;
+        color: #000;
+      }
+      .btn-clear {
+        background: #6c757d;
+        color: white;
+      }
+      .input-group {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 20px;
+      }
+      input[type="text"] {
+        flex: 1;
+        padding: 10px 15px;
+        border: 2px solid #333;
+        border-radius: 6px;
+        background: #16213e;
+        color: #eee;
+        font-size: 14px;
+      }
+      input[type="text"]:focus {
+        outline: none;
+        border-color: #00d9ff;
+      }
+      .log-container {
+        background: #16213e;
+        border-radius: 8px;
+        padding: 15px;
+        height: 400px;
+        overflow-y: auto;
+        font-family: "Monaco", "Menlo", monospace;
+        font-size: 12px;
+      }
+      .log-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid #1a1a2e;
+      }
+      .log-entry .time {
+        color: #6c757d;
+      }
+      .log-entry .type {
+        font-weight: bold;
+        margin: 0 8px;
+      }
+      .log-entry .type.event {
+        color: #00d9ff;
+      }
+      .log-entry .type.message {
+        color: #28a745;
+      }
+      .log-entry .type.error {
+        color: #dc3545;
+      }
+      .log-entry .type.state {
+        color: #fd7e14;
+      }
+      .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+      .stat-card {
+        background: #16213e;
+        padding: 15px;
+        border-radius: 8px;
+        text-align: center;
+      }
+      .stat-card .value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #00d9ff;
+      }
+      .stat-card .label {
+        font-size: 12px;
+        color: #6c757d;
+        margin-top: 5px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🚀 WrapSocket Test</h1>
+
+    <div id="status" class="status disconnected">Disconnected</div>
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="value" id="attemptCount">0</div>
+        <div class="label">Reconnect Attempts</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="messageCount">0</div>
+        <div class="label">Messages Received</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="networkStatus">Online</div>
+        <div class="label">Network</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="visibilityStatus">Visible</div>
+        <div class="label">Visibility</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button id="connectBtn" class="btn-connect" onclick="connect()">
+        Connect
+      </button>
+      <button
+        id="disconnectBtn"
+        class="btn-disconnect"
+        onclick="disconnect()"
+        disabled
+      >
+        Disconnect
+      </button>
+      <button
+        id="reconnectBtn"
+        class="btn-reconnect"
+        onclick="reconnect()"
+        disabled
+      >
+        Reconnect
+      </button>
+      <button class="btn-clear" onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div class="input-group">
+      <input
+        type="text"
+        id="messageInput"
+        placeholder="Type a message..."
+        onkeypress="if(event.key==='Enter')sendMessage()"
+      />
+      <button class="btn-send" onclick="sendMessage()">Send</button>
+    </div>
+
+    <div class="log-container" id="logContainer"></div>
+
+    <script type="module">
+      import { WrapSocket } from "../wrapsocket-ts/dist/wrapsocket.js";
+
+      let ws = null;
+      let messageCount = 0;
+      let attemptCount = 0;
+
+      window.connect = function () {
+        if (ws) {
+          ws.destroy();
+        }
+
+        ws = new WrapSocket({
+          url: `ws://${location.host}/ws`,
+          debug: true,
+          reconnect: {
+            enabled: true,
+            maxAttempts: 10,
+            initialDelay: 1000,
+            maxDelay: 30000,
+            backoffFactor: 2,
+          },
+          heartbeat: {
+            enabled: true,
+            interval: 15000,
+            timeout: 5000,
+          },
+        });
+
+        ws.on("stateChange", (state, previous) => {
+          log("state", `${previous} → ${state}`);
+          updateStatus(state);
+          updateButtons(state);
+        });
+
+        ws.on("open", () => {
+          log("event", "Connected to server");
+          attemptCount = 0;
+          document.getElementById("attemptCount").textContent = attemptCount;
+        });
+
+        ws.on("close", (event) => {
+          log(
+            "event",
+            `Connection closed: code=${event.code}, reason=${event.reason}`
+          );
+        });
+
+        ws.on("error", () => {
+          log("error", "WebSocket error");
+        });
+
+        ws.on("message", (event) => {
+          messageCount++;
+          document.getElementById("messageCount").textContent = messageCount;
+          log("message", event.data);
+        });
+
+        ws.on("reconnecting", (attempt, delay) => {
+          attemptCount = attempt;
+          document.getElementById("attemptCount").textContent = attemptCount;
+          log("state", `Reconnecting in ${delay}ms (attempt ${attempt})`);
+        });
+
+        ws.on("reconnectFailed", (attempt) => {
+          log("error", `Reconnect failed after ${attempt} attempts`);
+        });
+
+        ws.on("online", () => {
+          document.getElementById("networkStatus").textContent = "Online";
+          log("event", "Network online");
+        });
+
+        ws.on("offline", () => {
+          document.getElementById("networkStatus").textContent = "Offline";
+          log("event", "Network offline");
+        });
+
+        ws.on("visibilityChange", (visible) => {
+          document.getElementById("visibilityStatus").textContent = visible
+            ? "Visible"
+            : "Hidden";
+          log("event", `Visibility: ${visible ? "visible" : "hidden"}`);
+        });
+
+        ws.connect();
+      };
+
+      window.disconnect = function () {
+        if (ws) {
+          ws.disconnect();
+        }
+      };
+
+      window.reconnect = function () {
+        if (ws) {
+          ws.reconnect();
+        }
+      };
+
+      window.sendMessage = function () {
+        const input = document.getElementById("messageInput");
+        const message = input.value.trim();
+        if (!message) return;
+
+        if (ws && ws.isConnected) {
+          ws.send({ type: "event", data: message, timestamp: Date.now() });
+          log("message", `Sent: ${message}`);
+          input.value = "";
+        } else {
+          log("error", "Not connected");
+        }
+      };
+
+      window.clearLogs = function () {
+        document.getElementById("logContainer").innerHTML = "";
+      };
+
+      function log(type, message) {
+        const container = document.getElementById("logContainer");
+        const entry = document.createElement("div");
+        entry.className = "log-entry";
+        entry.innerHTML = `
+        <span class="time">${new Date().toLocaleTimeString()}</span>
+        <span class="type ${type}">[${type.toUpperCase()}]</span>
+        <span>${message}</span>
+      `;
+        container.appendChild(entry);
+        container.scrollTop = container.scrollHeight;
+      }
+
+      function updateStatus(state) {
+        const status = document.getElementById("status");
+        status.className = `status ${state}`;
+        status.textContent = state.charAt(0).toUpperCase() + state.slice(1);
+      }
+
+      function updateButtons(state) {
+        const connectBtn = document.getElementById("connectBtn");
+        const disconnectBtn = document.getElementById("disconnectBtn");
+        const reconnectBtn = document.getElementById("reconnectBtn");
+
+        connectBtn.disabled = state === "open" || state === "connecting";
+        disconnectBtn.disabled = state !== "open";
+        reconnectBtn.disabled = state === "open" || state === "connecting";
+      }
+
+      // Auto-connect on page load
+      setTimeout(() => window.connect(), 500);
+    </script>
+  </body>
+</html>
