@@ -140,6 +140,7 @@ func corsMiddleware(next http.Handler) http.Handler {
 **連接成功後行為**
 
 - 服務器自動分配唯一連接 ID
+- 服務器立即發送 welcome 消息：`{"type":"connected","id":"uuid"}`
 - 啟用心跳檢測（可配置）
 - 連接加入管理器進行統一管理
 
@@ -147,10 +148,19 @@ func corsMiddleware(next http.Handler) http.Handler {
 
 ```json
 {
-  "type": "event|ack|heartbeat|pong",
+  "type": "event|ack|heartbeat|pong|connected",
   "id": "uuid-string",
   "data": "any data",
   "timestamp": 1700000000000
+}
+```
+
+**Welcome 消息（連接建立後立即發送）**
+
+```json
+{
+  "type": "connected",
+  "id": "server-assigned-uuid"
 }
 ```
 
@@ -443,6 +453,11 @@ ws.on("open", () => {
   console.log("Connected to server");
 });
 
+ws.on("connected", (id: string) => {
+  console.log(`Received connection ID: ${id}`);
+  console.log(`My ID: ${ws.id}`);
+});
+
 ws.on("close", (event: CloseEvent) => {
   console.log(`Connection closed: code=${event.code}, reason=${event.reason}`);
 });
@@ -531,6 +546,7 @@ function destroy() {
 | 事件               | 參數                     | 說明           |
 | ------------------ | ------------------------ | -------------- |
 | `open`             | `(event: Event)`         | 連接成功       |
+| `connected`        | `(id: string)`           | 收到連接 ID    |
 | `close`            | `(event: CloseEvent)`    | 連接關閉       |
 | `error`            | `(event: Event)`         | 連接錯誤       |
 | `message`          | `(event: MessageEvent)`  | 收到消息       |
@@ -540,6 +556,15 @@ function destroy() {
 | `online`           | -                        | 網絡恢復       |
 | `offline`          | -                        | 網絡斷開       |
 | `visibilityChange` | `(visible)`              | 頁面可見性變化 |
+
+### 屬性
+
+| 屬性           | 類型              | 說明                        |
+| -------------- | ----------------- | --------------------------- |
+| `id`           | `string \| null`  | 當前連接的 ID（服務器分配） |
+| `state`        | `ConnectionState` | 當前連接狀態                |
+| `isConnected`  | `boolean`         | 是否已連接                  |
+| `isConnecting` | `boolean`         | 是否正在連接                |
 
 ### 連接狀態
 

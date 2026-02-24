@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -9,8 +9,8 @@
         box-sizing: border-box;
       }
       body {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
-          sans-serif;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
         max-width: 800px;
         margin: 0 auto;
         padding: 20px;
@@ -51,7 +51,9 @@
         border-radius: 6px;
         cursor: pointer;
         font-size: 14px;
-        transition: transform 0.1s, opacity 0.2s;
+        transition:
+          transform 0.1s,
+          opacity 0.2s;
       }
       button:hover {
         opacity: 0.9;
@@ -164,6 +166,10 @@
 
     <div class="stats">
       <div class="stat-card">
+        <div class="value" id="connectionId">-</div>
+        <div class="label">Connection ID</div>
+      </div>
+      <div class="stat-card">
         <div class="value" id="attemptCount">0</div>
         <div class="label">Reconnect Attempts</div>
       </div>
@@ -209,7 +215,7 @@
         type="text"
         id="messageInput"
         placeholder="Type a message..."
-        onkeypress="if(event.key==='Enter')sendMessage()"
+        onkeypress="if (event.key === 'Enter') sendMessage();"
       />
       <button class="btn-send" onclick="sendMessage()">Send</button>
     </div>
@@ -257,11 +263,20 @@
           document.getElementById("attemptCount").textContent = attemptCount;
         });
 
+        ws.on("connected", (id) => {
+          document.getElementById("connectionId").textContent = id.substring(
+            0,
+            8,
+          );
+          log("event", `Received ID: ${id}`);
+        });
+
         ws.on("close", (event) => {
           log(
             "event",
-            `Connection closed: code=${event.code}, reason=${event.reason}`
+            `Connection closed: code=${event.code}, reason=${event.reason}`,
           );
+          document.getElementById("connectionId").textContent = "-";
         });
 
         ws.on("error", () => {
